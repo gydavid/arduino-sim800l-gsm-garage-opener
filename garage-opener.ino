@@ -14,7 +14,7 @@ const int SIM800_RX = 10;
 const int SIM800_TX = 11;
 const int door1 = 2;
 const int door2 = 3;
-const int button = 2;
+const int button = 4;
 
 const int phoneNumberSize = 12;
 const int maxPhoneNumbers = 10;
