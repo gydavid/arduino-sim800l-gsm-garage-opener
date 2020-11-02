@@ -266,7 +266,7 @@ String commandwChar(char command, boolean line) {
   String response;
   char incoming_char=0;
   
-  if (command != "") {
+  if (String(command) != "") {
     Serial.println("Sending command: " + command);
     if(line) {
       SIM800.println(command);
