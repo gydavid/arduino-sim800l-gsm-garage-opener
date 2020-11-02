@@ -27,6 +27,9 @@ String storedNumbers[maxPhoneNumbers];
 
 SoftwareSerial SIM800(SIM800_RX, SIM800_TX);
 
+unsigned long lastServiceRunTime = 0;
+long serviceInterval = 24 * 60 * 60 * 1000; // 24 hour
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Setup begins");
@@ -67,13 +70,19 @@ void loop() {
     Serial.println(command);
     command.replace("\n", "");
     command.replace("\r", "");
-    String respond = processCommand(command, "console");
+    String respond = processCommand(command + " " + password, "console");
     Serial.println(respond);
   }
 
   if (digitalRead(button) == LOW) {
     beep();
     openDoors();
+  }
+
+  unsigned long currentTime = millis();
+  if (currentTime - lastServiceRunTime >= serviceInterval) {
+    lastServiceRunTime = currentTime;
+    clearAllSMS();
   }
 }
 
@@ -97,15 +106,18 @@ void readSMS() {
   String sms = gsmCommand("AT+CMGR=1");
   String message = parseSMSMessage(sms);
   String sender = parseSMSSender(sms);
+  clearAllSMS();
   String respond = processCommand(message, "sms");
   if(respond != "") {
-    Serial.println(gsmCommand("AT+CMGDA=\"DEL ALL\""));
-    for (int i = 0; i < 11; i++ ) {
-      Serial.println(gsmCommand("AT+CMGD=" + String(i)));
-    }
-    delay(200);
     sendSMS(sender, respond);
   }
+}
+
+void clearAllSMS() {
+  Serial.println(gsmCommand("AT+CMGDA=\"DEL ALL\""));
+  // for (int i = 0; i < 11; i++ ) {
+  //   Serial.println(gsmCommand("AT+CMGD=" + String(i)));
+  // }
 }
 
 void sendSMS(String number, String message) {
@@ -135,47 +147,47 @@ String parseSMSSender(String sms) {
 
 String processCommand(String message, String source) {
   int passwordPos = message.indexOf(" " + password);
-    String command = message;
-    command.toLowerCase();
-    if (command.startsWith("add ")) {
+  String command = message;
+  command.toLowerCase();
+  if (command.startsWith("add ")) {
     if (passwordPos > -1) {
       return putNumber(getNumberFromCommand(message));
     } else {
       return "INVALID PASSWORD";
     }
-    } else if (command.startsWith("del ")) {
+  } else if (command.startsWith("del ")) {
     if (passwordPos > -1) {
       return removeNumber(getNumberFromCommand(message));
     } else {
       return "INVALID PASSWORD";
     }
-    } else if (command.startsWith("delete ")) {
+  } else if (command.startsWith("delete ")) {
     if (passwordPos > -1) {
       return removeNumber(getNumberFromCommand(message));
     } else {
       return "INVALID PASSWORD";
     }
-    } else if (command.startsWith("forward ")) {
+  } else if (command.startsWith("forward ")) {
     if (passwordPos > -1) {
       return setForwardNumber(getNumberFromCommand(message));
     } else {
       return "INVALID PASSWORD";
     }
-    } else if (command.startsWith("list ")) {
+  } else if (command.startsWith("list ")) {
     if (passwordPos > -1) {
       return listNumbers();
     } else {
       return "INVALID PASSWORD";
     }
   } else {
-      if (source == "sms") {
-        String forwardNumber = getForwardNumber();
-        if(forwardNumber.startsWith("+")) {
-          sendSMS(forwardNumber, message);
-        }
+    if (source == "sms") {
+      String forwardNumber = getForwardNumber();
+      if(forwardNumber.startsWith("+")) {
+        sendSMS(forwardNumber, message);
       }
-      return "";
     }
+    return "";
+  }
 }
 
 String listNumbers() {
