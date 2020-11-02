@@ -2,10 +2,14 @@
 #include <EEPROM.h>
 /*
  * SMS commands:
- * "add +36209999999 password" -> add new authenticated number
- * "del +36209999999 password" or "delete +36209999999 password" -> delete authenticated number
- * "forward +36209999999 password" -> set forward number (forward any unknown sms)
- * "list password"
+ * - Add new authenticated number:
+ *    "add +36209999999 <password>"
+ * - Delete authenticated number
+ *    "del +36209999999 <password>" or "delete +36209999999 <password>"
+ * - Set forward number (Forward any unknown sms. Set to 0 if you want to disable it):
+ *    "forward +36209999999 <password>"
+ * - List stored numbers:
+ *    "list <password>"
  */
 
 String password = "password";
@@ -162,9 +166,14 @@ String listNumbers() {
   String response = "Stored numbers: ";
   for (int i = 0; i < maxPhoneNumbers; i++) {
     if (storedNumbers[i] != "") {
-      response = response + storedNumbers[i] + ", "; 
+      response = response + storedNumbers[i]; 
+      if (i < (maxPhoneNumbers - 1)) {
+        response = response + ", ";  
+      }
     }
   }
+  String forwardNumber = getForwardNumber();
+  response = response + " / Forward number: " + forwardNumber;
   return response;
 }
 
