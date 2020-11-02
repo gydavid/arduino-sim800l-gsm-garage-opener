@@ -135,20 +135,39 @@ String parseSMSSender(String sms) {
 
 String processCommand(String message, String source) {
   int passwordPos = message.indexOf(" " + password);
-  if (passwordPos > -1) {
     String command = message;
     command.toLowerCase();
     if (command.startsWith("add ")) {
+    if (passwordPos > -1) {
       return putNumber(getNumberFromCommand(message));
+    } else {
+      return "INVALID PASSWORD";
+    }
     } else if (command.startsWith("del ")) {
+    if (passwordPos > -1) {
       return removeNumber(getNumberFromCommand(message));
+    } else {
+      return "INVALID PASSWORD";
+    }
     } else if (command.startsWith("delete ")) {
+    if (passwordPos > -1) {
       return removeNumber(getNumberFromCommand(message));
+    } else {
+      return "INVALID PASSWORD";
+    }
     } else if (command.startsWith("forward ")) {
+    if (passwordPos > -1) {
       return setForwardNumber(getNumberFromCommand(message));
+    } else {
+      return "INVALID PASSWORD";
+    }
     } else if (command.startsWith("list ")) {
+    if (passwordPos > -1) {
       return listNumbers();
     } else {
+      return "INVALID PASSWORD";
+    }
+  } else {
       if (source == "sms") {
         String forwardNumber = getForwardNumber();
         if(forwardNumber.startsWith("+")) {
@@ -157,9 +176,6 @@ String processCommand(String message, String source) {
       }
       return "";
     }
-  } else {
-    return "INVALID PASSWORD";
-  }
 }
 
 String listNumbers() {
