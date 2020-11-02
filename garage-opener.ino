@@ -2,19 +2,20 @@
 #include <EEPROM.h>
 /*
  * SMS commands:
- * "add +36209999999 password"
- * "del +36209999999 password" or "delete +36209999999 password"
+ * "add +36209999999 password" -> add new authenticated number
+ * "del +36209999999 password" or "delete +36209999999 password" -> delete authenticated number
+ * "forward +36209999999 password" -> set forward number (forward any unknown sms)
  * "list password"
- * "?" or "help"
  */
 
 String password = "password";
 
+const int button = 2;
+const int door1 = 3;
+const int door2 = 4;
+const int buzzer = 9;
 const int SIM800_RX = 10;
 const int SIM800_TX = 11;
-const int door1 = 2;
-const int door2 = 3;
-const int button = 4;
 
 const int phoneNumberSize = 12;
 const int maxPhoneNumbers = 10;
@@ -27,9 +28,11 @@ void setup() {
   Serial.println("Setup begins");
   pinMode(door1, OUTPUT);
   pinMode(door2, OUTPUT);
-  pinMode(button, INPUT);
-//  initPhone();
-  readStoredNumbers(); // required!
+  pinMode(button, INPUT_PULLUP);
+  pinMode(buzzer, OUTPUT);
+  initPhone();
+  readStoredNumbers();
+  beep();
   Serial.println("Setup end");
 }
 
@@ -43,6 +46,8 @@ void loop() {
     if (firstChar==255) {
       initPhone();
     } else if (response.startsWith("RING")) {
+      Serial.println("ringringringringring");
+      Serial.println(response);
       ring(response);
     } else if (response.startsWith("+CMTI:")) {
       readSMS();
@@ -58,12 +63,20 @@ void loop() {
     Serial.println(command);
     command.replace("\n", "");
     command.replace("\r", "");
-    Serial.println(smsCommand(command + " " + password));
+    String respond = processCommand(command, "console");
+    Serial.println(respond);
   }
 
-  if (digitalRead(button) == HIGH) {
+  if (digitalRead(button) == LOW) {
+    beep();
     openDoors();
   }
+}
+
+void beep() {
+  tone(buzzer, 3000);
+  delay(40);
+  noTone(buzzer);
 }
 
 void initPhone() {
@@ -80,7 +93,7 @@ void readSMS() {
   String sms = gsmCommand("AT+CMGR=1");
   String message = parseSMSMessage(sms);
   String sender = parseSMSSender(sms);
-  String respond = smsCommand(message);
+  String respond = processCommand(message, "sms");
   if(respond != "") {
     Serial.println(gsmCommand("AT+CMGDA=\"DEL ALL\""));
     for (int i = 0; i < 11; i++ ) {
@@ -116,7 +129,7 @@ String parseSMSSender(String sms) {
   return sender;
 }
 
-String smsCommand(String message) {
+String processCommand(String message, String source) {
   int passwordPos = message.indexOf(" " + password);
   if (passwordPos > -1) {
     String command = message;
@@ -127,9 +140,17 @@ String smsCommand(String message) {
       return removeNumber(getNumberFromCommand(message));
     } else if (command.startsWith("delete ")) {
       return removeNumber(getNumberFromCommand(message));
+    } else if (command.startsWith("forward ")) {
+      return setForwardNumber(getNumberFromCommand(message));
     } else if (command.startsWith("list ")) {
       return listNumbers();
     } else {
+      if (source == "sms") {
+        String forwardNumber = getForwardNumber();
+        if(forwardNumber.startsWith("+")) {
+          sendSMS(forwardNumber, message);
+        }
+      }
       return "";
     }
   } else {
@@ -165,14 +186,18 @@ String getCaller(String response) {
 }
 
 void openDoors() {
-  Serial.println("Open doors");
+  Serial.println("Open doors start");
+  delay(1000); // gsm interference :(
+  Serial.println("Open first door");
   digitalWrite(door1 , HIGH);
-  delay(300);
+  delay(200);
   digitalWrite(door1, LOW);
-  delay(1500);  
+  delay(2000);  
+  Serial.println("Open second door");
   digitalWrite(door2 , HIGH);
-  delay(300);
-  digitalWrite(door2, LOW);  
+  delay(200);
+  digitalWrite(door2, LOW); 
+  Serial.println("All doors opened"); 
 }
 
 void ring(String response) {
@@ -279,6 +304,19 @@ String putNumber(String number) {
   EEPROM.put( target * (phoneNumberSize + 1), numberChar);
   readStoredNumbers();
   return "OK";
+}
+
+String setForwardNumber(String number) {
+  char numberChar[phoneNumberSize + 1];
+  number.toCharArray(numberChar, phoneNumberSize + 1);
+  EEPROM.put( maxPhoneNumbers * (phoneNumberSize + 1), numberChar);
+  return "OK";
+}
+
+String getForwardNumber() {
+  char number[phoneNumberSize + 1];
+  EEPROM.get( maxPhoneNumbers * (phoneNumberSize + 1), number);
+  return String(number);
 }
 
 String removeNumber(String number) {
